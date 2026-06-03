@@ -1,0 +1,83 @@
+# ─────────────────────────────────────────────────────────────
+# MergeMarket .gitignore
+# Covers Go services, the Flutter mobile app, and environment files.
+# ─────────────────────────────────────────────────────────────
+
+# ── Environment & secrets ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ── Go ─────────────────────────────────────────────────────────
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+# Test & coverage output
+*.test
+*.out
+coverage.out
+coverage.html
+# Go workspace file
+go.work
+go.work.sum
+# Vendored deps (we rely on the module cache)
+vendor/
+
+# ── Flutter / Dart ─────────────────────────────────────────────
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+apps/mobile/.pub-cache/
+apps/mobile/.pub/
+apps/mobile/build/
+apps/mobile/coverage/
+apps/mobile/**/*.g.dart
+apps/mobile/**/*.freezed.dart
+apps/mobile/**/*.mocks.dart
+# Android
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/key.properties
+apps/mobile/android/app/*.jks
+# iOS
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/ios/Flutter/Flutter.framework
+apps/mobile/ios/Flutter/Generated.xcconfig
+
+# ── Infrastructure ─────────────────────────────────────────────
+# Terraform
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+# Kubernetes/Helm local state
+infra/k3s/*.local.yml
+
+# ── SonarQube ──────────────────────────────────────────────────
+.scannerwork/
+.sonar/
+
+# ── Editors & OS ───────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Logs ───────────────────────────────────────────────────────
+*.log
+logs/

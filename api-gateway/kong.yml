@@ -1,0 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Kong Declarative Config — PLACEHOLDER
+# ─────────────────────────────────────────────────────────────────────────
+# Kong runs in DB-less mode (KONG_DATABASE=off) and loads this file on boot.
+# This minimal, valid config exists so `docker compose up` brings Kong up
+# cleanly during early development.
+#
+# Task A-09 replaces this file with the full route table, rate-limiting, and
+# JWT auth plugin mapping every endpoint in project_docs/api/API_CONTRACTS.md.
+# Until then Kong starts healthy but proxies nothing.
+# ─────────────────────────────────────────────────────────────────────────
+_format_version: "3.0"
+_transform: true
+
+services: []
+routes: []

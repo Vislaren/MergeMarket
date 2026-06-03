@@ -81,3 +81,7 @@ Thumbs.db
 # ── Logs ───────────────────────────────────────────────────────
 *.log
 logs/
+
+# ── Agent workflow & project docs (not part of the codebase) ───
+.agents/
+project_docs/

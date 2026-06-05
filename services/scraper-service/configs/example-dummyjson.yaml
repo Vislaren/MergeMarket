@@ -1,0 +1,23 @@
+# Sample StoreConfig in YAML form. This one targets the public dummyjson.com
+# products API, which is handy for an end-to-end smoke test of the scraper
+# without depending on a real retailer:
+#   GET https://dummyjson.com/products/search?q=phone
+# returns { "products": [ { "id", "title", "price", "thumbnail", ... } ] }.
+store_id: dummyjson
+name: DummyJSON (demo)
+base_url: https://dummyjson.com
+currency: USD
+mode: json_api
+search:
+  url_template: https://dummyjson.com/products/search?q={query}
+  method: GET
+  headers:
+    Accept: application/json
+json:
+  results_path: products
+  product_id: id
+  title: title
+  price: price
+  image_url: thumbnail
+  # dummyjson has no per-item URL or shipping; those are left unset and the
+  # store-level currency (USD) is applied.

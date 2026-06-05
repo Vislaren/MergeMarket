@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_store_id   ON products(store_id);
 CREATE INDEX IF NOT EXISTS idx_products_scraped_at ON products(scraped_at);
 
+-- A product is uniquely identified by its store + URL. The normalization
+-- service (A-06) upserts on this key so a re-scrape refreshes the existing row
+-- (price/shipping/affiliate/scraped_at) instead of duplicating it.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_store_url ON products(store_id, url);
+
 CREATE TABLE IF NOT EXISTS wishlist_items (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

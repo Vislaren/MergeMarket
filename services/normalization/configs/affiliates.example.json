@@ -1,0 +1,15 @@
+{
+  "_comment": "Affiliate Link Injection config (A-06, FR-6). Copy to a real file and point NORMALIZATION_AFFILIATE_CONFIG at it. Keys under 'stores' are scraper store ids (StoreConfig.store_id). 'template' is an optional deep-link wrapper with {url} (URL-encoded) / {url_raw} placeholders; 'params' are query parameters appended to the link and override default_params for that store.",
+  "default_params": {
+    "utm_source": "mergemarket",
+    "utm_medium": "aggregator"
+  },
+  "stores": {
+    "jumia-cm": {
+      "params": { "aff": "mergemarket-21" }
+    },
+    "dummyjson": {
+      "template": "https://go.example-affiliate.com/redirect?partner=mergemarket&url={url}"
+    }
+  }
+}

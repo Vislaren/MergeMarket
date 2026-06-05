@@ -1,0 +1,26 @@
+{
+  "store_id": "jumia-cm",
+  "name": "Jumia Cameroon",
+  "base_url": "https://www.jumia.cm",
+  "currency": "XAF",
+  "affiliate_template": "{url}?aff=mergemarket",
+  "mode": "json_api",
+  "search": {
+    "url_template": "https://www.jumia.cm/catalog/api/?q={query}&country={location}",
+    "method": "GET",
+    "headers": {
+      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; MergeMarketBot/0.1; +https://mergemarket.app/bot)"
+    }
+  },
+  "json": {
+    "results_path": "data.products",
+    "product_id": "sku",
+    "title": "name",
+    "price": "price.value",
+    "currency": "price.currency",
+    "shipping": "shipping.cost",
+    "image_url": "image",
+    "url": "url"
+  }
+}

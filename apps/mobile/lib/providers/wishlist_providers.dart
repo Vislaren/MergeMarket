@@ -2,12 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/wishlist.dart';
 import '../services/wishlist_repository.dart';
-import 'search_providers.dart';
+import 'auth_providers.dart';
 
-/// The wishlist data-layer repository, wired to the shared HTTP client from
-/// [httpClientProvider].
+/// The wishlist data-layer repository, wired to the authenticated HTTP client
+/// so wishlist calls carry the Bearer token Kong requires (B-11).
 final wishlistRepositoryProvider = Provider<WishlistRepository>((ref) {
-  return WishlistRepository(client: ref.watch(httpClientProvider));
+  return WishlistRepository(client: ref.watch(authedHttpClientProvider));
 });
 
 /// The user's wishlist as an [AsyncValue] so the Wishlist screen can render

@@ -136,7 +136,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 // aggregated history + truth-score + offers view.
 func (s *Server) handleProductDetail(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("product_id")
-	detail, err := buildProductDetail(r.Context(), s.upstream, id)
+	detail, err := buildProductDetail(r.Context(), s.upstream, id, r.Header.Get("Authorization"))
 	if err != nil {
 		if isNotFound(err) {
 			writeError(w, http.StatusNotFound, "not_found", "product not found")

@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/auth_session.dart';
+import '../services/api_exception.dart';
 import '../services/auth_repository.dart';
+import '../services/authenticated_client.dart';
 import '../services/session_store.dart';
 import 'search_providers.dart';
 
@@ -67,6 +70,31 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = AsyncData(AuthState(session: session, email: email));
   }
 
+  /// Exchanges the current refresh token for a fresh session, persisting it and
+  /// updating [state]. Returns `true` on success.
+  ///
+  /// On failure (the refresh token is expired/invalid) it clears the session
+  /// and returns to the signed-out state, returning `false` — the caller (the
+  /// [AuthenticatedClient] interceptor) then lets the original 401 surface so
+  /// the router guard can route to login. Used by the refresh-on-401 path; not
+  /// called directly by screens.
+  Future<bool> refreshSession() async {
+    final current = state.value?.session;
+    if (current == null) return false;
+    final email = state.value?.email;
+    try {
+      final session =
+          await ref.read(authRepositoryProvider).refresh(current.refreshToken);
+      await ref.read(sessionStoreProvider).save(session, email: email);
+      state = AsyncData(AuthState(session: session, email: email));
+      return true;
+    } on ApiException {
+      await ref.read(sessionStoreProvider).clear();
+      state = AsyncData(AuthState(email: email));
+      return false;
+    }
+  }
+
   /// Clears the persisted session and returns to the signed-out state.
   Future<void> logout() async {
     await ref.read(sessionStoreProvider).clear();
@@ -83,4 +111,20 @@ final authControllerProvider =
 /// the app is safely treated as signed-out until proven otherwise.
 final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(authControllerProvider).value?.isAuthenticated ?? false;
+});
+
+/// The HTTP client for **protected** data-layer calls (everything except auth):
+/// the shared [httpClientProvider] wrapped in an [AuthenticatedClient] so every
+/// request carries the Bearer token and a 401 triggers a single refresh + replay.
+///
+/// This is the seam B-11 swaps in: against the B-02 mock (no auth) it is a
+/// harmless pass-through when signed out; against Kong (A-09) it satisfies the
+/// JWT plugin and survives access-token expiry. The auth repository keeps using
+/// the bare [httpClientProvider] — it must not require or refresh a token.
+final authedHttpClientProvider = Provider<http.Client>((ref) {
+  return AuthenticatedClient(
+    inner: ref.watch(httpClientProvider),
+    readToken: () => ref.read(authControllerProvider).value?.session?.token,
+    refreshToken: () => ref.read(authControllerProvider.notifier).refreshSession(),
+  );
 });

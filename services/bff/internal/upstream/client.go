@@ -82,30 +82,35 @@ type NotFoundError struct{ Path string }
 func (e *NotFoundError) Error() string { return "upstream: not found: " + e.Path }
 
 // History fetches a product's price history. Returns *NotFoundError on 404.
-func (c *Client) History(ctx context.Context, productID string) (History, error) {
+// auth is the caller's Authorization header, forwarded so the upstream JWT
+// gate (Kong, A-09) accepts the request; pass "" when unauthenticated.
+func (c *Client) History(ctx context.Context, productID, auth string) (History, error) {
 	var out History
-	err := c.getJSON(ctx, "/api/v1/products/"+url.PathEscape(productID)+"/history", nil, &out)
+	err := c.getJSON(ctx, "/api/v1/products/"+url.PathEscape(productID)+"/history", nil, auth, &out)
 	return out, err
 }
 
-// TruthScore fetches a product's review truth score.
-func (c *Client) TruthScore(ctx context.Context, productID string) (TruthScore, error) {
+// TruthScore fetches a product's review truth score. auth is forwarded as the
+// Authorization header (see [Client.History]).
+func (c *Client) TruthScore(ctx context.Context, productID, auth string) (TruthScore, error) {
 	var out TruthScore
-	err := c.getJSON(ctx, "/api/v1/products/"+url.PathEscape(productID)+"/truth-score", nil, &out)
+	err := c.getJSON(ctx, "/api/v1/products/"+url.PathEscape(productID)+"/truth-score", nil, auth, &out)
 	return out, err
 }
 
-// Search runs a store search for query in location.
-func (c *Client) Search(ctx context.Context, query, location string) (SearchResponse, error) {
+// Search runs a store search for query in location. auth is forwarded as the
+// Authorization header (see [Client.History]).
+func (c *Client) Search(ctx context.Context, query, location, auth string) (SearchResponse, error) {
 	var out SearchResponse
 	q := url.Values{"q": {query}, "location": {location}}
-	err := c.getJSON(ctx, "/api/v1/search", q, &out)
+	err := c.getJSON(ctx, "/api/v1/search", q, auth, &out)
 	return out, err
 }
 
 // getJSON performs a GET and decodes a 200 body into out. A 404 becomes a
-// *NotFoundError; any other non-200 becomes a generic error.
-func (c *Client) getJSON(ctx context.Context, path string, query url.Values, out any) error {
+// *NotFoundError; any other non-200 becomes a generic error. A non-empty auth
+// is forwarded as the Authorization header.
+func (c *Client) getJSON(ctx context.Context, path string, query url.Values, auth string, out any) error {
 	u := c.baseURL + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
@@ -115,6 +120,9 @@ func (c *Client) getJSON(ctx context.Context, path string, query url.Values, out
 		return fmt.Errorf("upstream: build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
+	if auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {

@@ -2,13 +2,15 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN    = credentials('sonar-token')
-        VPS_SSH_KEY    = credentials('vps-ssh-key')
-        SONAR_HOST_URL = 'http://95.111.228.35:9000'
-        VPS_HOST       = '95.111.228.35'
-        VPS_USER       = 'root'
-    }
-
+    GOROOT = '/usr/local/go'
+    GOPATH = '/var/lib/jenkins/go'
+    PATH   = "/usr/local/go/bin:${env.PATH}"
+    SONAR_TOKEN    = credentials('squ_3fb7160be8187a314e852ef03a4851b045d38780')
+    VPS_SSH_KEY    = credentials('vps-ssh-key')
+    SONAR_HOST_URL = 'http://95.111.228.35:9000'
+    VPS_HOST       = '95.111.228.35'
+    VPS_USER       = 'root'
+}
     stages {
 
         stage('Checkout') {
@@ -64,6 +66,23 @@ pipeline {
                 }
             }
         }
+
+        stage('Test') {
+    steps {
+        sh '''
+            for service in scraper-service normalization; do
+                if [ -f "services/$service/go.mod" ]; then
+                    echo "Testing $service..."
+                    cd services/$service
+                    go test -coverprofile=coverage.out ./...
+                    cd ../..
+                else
+                    echo "Skipping $service — no go.mod found"
+                fi
+            done
+        '''
+    }
+}
     }
 
     post {

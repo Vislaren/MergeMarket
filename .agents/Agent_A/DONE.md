@@ -617,6 +617,121 @@ application on the VPS, matching the A-11 approach.
 
 ---
 
+### [DONE] A-14 — Search Read Service
+**Session:** 8
+**Completed by:** Agent A
+**Commit:** `session(A-14,A-16..A-18): search + userdata services (unblock live E2E)`
+
+**What was built:**
+The real `GET /api/v1/search` service (`services/search/`, module
+`github.com/Vislaren/MergeMarket/services/search`, port **8087**) — the head of
+the live E2E flow that was previously mock-only (see
+`docs/testing/session-13/CONTRACT_AUDIT.md`). It serves normalized products from
+PostgreSQL (written by A-06) fronted by the `search:{query_hash}` Redis cache
+(the cache write A-06 explicitly deferred), with stale-while-revalidate
+(ARCHITECTURE §10). Serves `GET /health`.
+
+Packages (all GoDoc, `log/slog`, env-only config, named errors): `config`,
+`store` (read-only pgx repo: title `ILIKE`, cheapest-total-cost first),
+`cache` (Redis SWR cache + `search:{sha256(q|location)}` key helper, behind a
+`Cache` interface), `search` (orchestrator: cache→DB fallback, background
+revalidation, Deal Meter scoring), `server` (`GET /api/v1/search` + `/health`,
+contract error shapes). Plus `cmd/search/main.go`, `Dockerfile`, `README.md`.
+
+**Files created/modified:**
+- `services/search/` — full tree (`cmd/`, `internal/{config,store,cache,search,server}`, go.mod/go.sum, Dockerfile, README).
+- `.env.example` — Search service block (`SEARCH_PORT=8087`, cache vars).
+- `infra/db/init/01-schema.sql` — (shared with the A-16..A-18 entry: `purchases` table).
+
+**Key decisions made:**
+- **Deal Meter is a deterministic heuristic** (cheapest total in the result set
+  → 100, dearest → 0, linear between). Documented as a placeholder for a richer
+  price-history/review-aware Deal Meter (future A-15). Keeps the contract's
+  required `deal_score` always populated.
+- **`location` is advisory** — no country column exists on products/stores, so
+  geo-filtering is deferred; it is still part of the cache key so adding real
+  filtering later won't break cached callers.
+- **SWR via cache-aside + background refresh** on a fresh `context.Background()`
+  (not the request ctx, which cancels on response).
+- Redis is best-effort (degrades to always-DB); Postgres is a hard dependency.
+
+**API contracts changed:** No — implements `GET /api/v1/search` exactly
+(`cached`/`latency_ms`/`deal_score` all populated). **Agent B can now point the
+search route at this real service instead of the B-02 mock.**
+
+**Known limitations:**
+- `location` filtering deferred (see above).
+- No `/metrics` yet (consistent with A-04..A-08; the PORTS_README Prometheus
+  mandate remains an open cross-service follow-up).
+- Live DB/Redis paths exercised at runtime; unit tests cover config, cache key,
+  orchestrator (fakes), Deal Meter, and HTTP layer. `go build/vet/test/gofmt` all clean.
+
+---
+
+### [DONE] A-16 · A-17 · A-18 — Wishlist + Alerts + Savings (consolidated user-data service)
+**Session:** 8
+**Completed by:** Agent A
+**Commit:** `session(A-14,A-16..A-18): search + userdata services (unblock live E2E)`
+
+**What was built:**
+The real per-user CRUD backend behind the wishlist, alerts, and savings routes
+that were mock-only per the CONTRACT_AUDIT. Built as **one consolidated service**
+`services/userdata/` (module `github.com/Vislaren/MergeMarket/services/userdata`,
+port **8090**) covering all three contract groups:
+- **A-16 Wishlist** — `GET/POST/DELETE /api/v1/wishlist`
+- **A-17 Alerts** — `GET/POST/DELETE /api/v1/alerts`
+- **A-18 Savings** — `GET /api/v1/savings`
+plus `GET /health`.
+
+Packages: `config`, `token` (HS256 JWT **verifier** — the read counterpart to
+A-08's issuer; same alg/claims), `store` (pgx repo owning `wishlist_items`,
+`price_alerts`, `purchases`; every op scoped by `user_id`; domain errors mapped
+from pg codes 23505/23503/22P02), `server` (auth middleware + all 7 API routes,
+contract status codes/error shapes). Plus `cmd/userdata/main.go`, `Dockerfile`,
+`README.md`.
+
+**Files created/modified:**
+- `services/userdata/` — full tree (`cmd/`, `internal/{config,token,store,server}`, go.mod/go.sum, Dockerfile, README).
+- `.env.example` — User-data block (`USERDATA_PORT=8090`, `USERDATA_JWT_ISSUER`).
+- `infra/db/init/01-schema.sql` — **added the `purchases` table + index** (backs savings).
+- `project_docs/database/DATABASE_SCHEMA.md` — added `purchases` (LOCAL-ONLY: `project_docs/` is gitignored; see note below).
+
+**Key decisions made:**
+- **Consolidation (A-16+A-17+A-18 → one service):** all three are
+  "JWT-authenticated CRUD over the current user's Postgres rows," and Kong/A-09
+  already routes all three paths to a single upstream (BFF). One service avoids
+  triplicating config/JWT/pgx/Docker boilerplate with no loss of isolation. The
+  contract paths/shapes are unchanged. (Logged here so Agent B/mocks need no
+  change beyond pointing the routes at the real upstream.)
+- **JWT re-verification in-service:** Kong validates at the edge and the BFF
+  forwards the `Authorization` header; the service re-verifies the HS256
+  signature with the shared `JWT_SECRET` and reads `user_id`. Every query is
+  user-scoped so no cross-user access is possible. Expired-but-valid → `401
+  token_expired`; otherwise `401 unauthorized`.
+- **New `purchases` table** for savings (none existed): `id, user_id, product_id,
+  saved, currency, bought_at`. Added to the canonical schema + init SQL and
+  created idempotently at startup (`EnsureSchema`).
+- **Wishlist `stores[]`** is a real price comparison: every store selling a
+  product with the same title, cheapest first.
+
+**API contracts changed:** No — implements the wishlist/alerts/savings contracts
+exactly. **Schema note for Agent B:** new `purchases` table (additive). **Agent B
+can now point these routes at the real `userdata` service.**
+
+**Known limitations:**
+- **No `purchases` write path yet** — savings reads what a future checkout/
+  affiliate-conversion flow will write. Seed manually until then.
+- `project_docs/` and most of `.agents/` are **gitignored** — the canonical
+  `DATABASE_SCHEMA.md` and `PORTS_README.md` edits are local-only. The tracked,
+  functional `infra/db/init/01-schema.sql` carries the `purchases` table, so the
+  runtime schema is correct on every checkout.
+- No `/metrics` yet (same cross-service follow-up as above).
+- Live DB path covered at runtime; unit tests cover config, JWT verify (valid/
+  expired/wrong-secret/wrong-issuer/tampered/malformed), and every HTTP route
+  with fakes. `go build/vet/test/gofmt` all clean.
+
+---
+
 ## Entry Format
 
 When you complete a task, add an entry using this format:

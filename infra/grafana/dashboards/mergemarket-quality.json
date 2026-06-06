@@ -1,0 +1,434 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "MergeMarket code-quality and CI/CD pipeline health, sourced from the SonarQube API and the GitHub Actions API via the Infinity datasource (A-12).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "tags": [],
+      "targetBlank": true,
+      "title": "SonarQube project",
+      "type": "link",
+      "url": "${VAR_SONAR_HOST_URL}/dashboard?id=${sonar_project}"
+    }
+  ],
+  "liveNow": false,
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": ["mergemarket", "quality", "ci"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "mergemarket", "value": "mergemarket" },
+        "description": "SonarQube project key (matches sonar-project.properties).",
+        "hide": 0,
+        "label": "SonarQube project",
+        "name": "sonar_project",
+        "options": [
+          { "selected": true, "text": "mergemarket", "value": "mergemarket" }
+        ],
+        "query": "mergemarket",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": false, "text": "Vislaren/MergeMarket", "value": "Vislaren/MergeMarket" },
+        "description": "GitHub owner/repo for the Actions pipeline panels.",
+        "hide": 0,
+        "label": "GitHub repo",
+        "name": "gh_repo",
+        "options": [
+          { "selected": true, "text": "Vislaren/MergeMarket", "value": "Vislaren/MergeMarket" }
+        ],
+        "query": "Vislaren/MergeMarket",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": { "from": "now-90d", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "MergeMarket — Quality & Pipeline",
+  "uid": "mergemarket-quality",
+  "version": 1,
+  "weekStart": "",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Test Coverage %",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "green", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^value$/", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "/api/measures/component?component=${sonar_project}&metricKeys=coverage",
+          "url_options": { "method": "GET" },
+          "root_selector": "component.measures",
+          "columns": [
+            { "selector": "value", "text": "value", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Open Bugs",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^value$/", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "/api/measures/component?component=${sonar_project}&metricKeys=bugs",
+          "url_options": { "method": "GET" },
+          "root_selector": "component.measures",
+          "columns": [
+            { "selector": "value", "text": "value", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Vulnerabilities",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^value$/", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "/api/measures/component?component=${sonar_project}&metricKeys=vulnerabilities",
+          "url_options": { "method": "GET" },
+          "root_selector": "component.measures",
+          "columns": [
+            { "selector": "value", "text": "value", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "piechart",
+      "title": "Pipeline Pass/Fail Rate (last 50 runs)",
+      "description": "Conclusions of the most recent GitHub Actions workflow runs. Empty until the GitHub Actions workflow is active (CI currently runs on Jenkins — see docs/grafana-setup.md).",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "github_api" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "hideFrom": { "tooltip": false, "viz": false, "legend": false } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "success" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "failure" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+        "pieType": "donut",
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "values": ["value", "percent"] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "github_api" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "/repos/${gh_repo}/actions/runs?per_page=50",
+          "url_options": { "method": "GET" },
+          "root_selector": "workflow_runs",
+          "columns": [
+            { "selector": "conclusion", "text": "conclusion", "type": "string" }
+          ]
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "conclusion": { "aggregations": [], "operation": "groupby" }
+            }
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "conclusion": { "aggregations": ["count"], "operation": "aggregate" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Coverage % Over Time",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/measures/search_history?component=${sonar_project}&metrics=coverage&ps=1000",
+          "url_options": { "method": "GET" },
+          "root_selector": "measures.0.history",
+          "columns": [
+            { "selector": "date", "text": "time", "type": "timestamp" },
+            { "selector": "value", "text": "coverage", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Bugs & Vulnerabilities Over Time",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/measures/search_history?component=${sonar_project}&metrics=bugs&ps=1000",
+          "url_options": { "method": "GET" },
+          "root_selector": "measures.0.history",
+          "columns": [
+            { "selector": "date", "text": "time", "type": "timestamp" },
+            { "selector": "value", "text": "bugs", "type": "number" }
+          ]
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "sonarqube_api" },
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/measures/search_history?component=${sonar_project}&metrics=vulnerabilities&ps=1000",
+          "url_options": { "method": "GET" },
+          "root_selector": "measures.0.history",
+          "columns": [
+            { "selector": "date", "text": "time", "type": "timestamp" },
+            { "selector": "value", "text": "vulnerabilities", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pipeline Build Duration Over Time",
+      "description": "Per-run duration (updated_at − run_started_at) for recent GitHub Actions runs. Empty until the GitHub Actions workflow is active — CI currently runs on Jenkins (see docs/grafana-setup.md).",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "github_api" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false, "calcs": [] },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "github_api" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "/repos/${gh_repo}/actions/runs?per_page=50",
+          "url_options": { "method": "GET" },
+          "root_selector": "workflow_runs",
+          "columns": [
+            { "selector": "run_started_at", "text": "started", "type": "timestamp" },
+            { "selector": "updated_at", "text": "ended", "type": "timestamp" }
+          ]
+        }
+      ],
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "targetField": "started", "destinationType": "number" },
+              { "targetField": "ended", "destinationType": "number" }
+            ]
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "duration_ms",
+            "mode": "binary",
+            "binary": { "left": "ended", "operator": "-", "right": "started" },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "targetField": "started", "destinationType": "time" }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "ended": true },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -28,18 +28,6 @@ so every push triggers the pipeline automatically.
 
 ---
 
-### A-12 — Grafana Dashboard on VPS
-**Description:** Deploy Grafana as a Docker container on the VPS (port
-3000). Configure two data sources: SonarQube API and GitHub API. Build a
-dashboard with panels for test coverage %, bug count, vulnerability count,
-pipeline pass/fail rate, and build duration over time.
-
-**Depends on:** A-11
-
-**Output:** `infra/k3s/grafana.yml`, `infra/grafana/dashboards/`
-
----
-
 ### A-13 — Automated Database Backups
 **Description:** Write a cron-based backup script that runs nightly on the
 VPS. The script must: dump the full PostgreSQL/TimescaleDB database using

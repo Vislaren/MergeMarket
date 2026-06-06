@@ -1,0 +1,18 @@
+# Grafana dashboard provider (A-12)
+#
+# Loads every dashboard JSON found under /var/lib/grafana/dashboards. In the
+# K3s deployment that path is backed by the `grafana-dashboards` ConfigMap,
+# which is generated from infra/grafana/dashboards/ (see the runbook).
+apiVersion: 1
+
+providers:
+  - name: MergeMarket
+    orgId: 1
+    folder: MergeMarket
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

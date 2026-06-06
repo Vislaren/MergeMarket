@@ -1,0 +1,197 @@
+# Grafana for MergeMarket (A-12)
+#
+# Deploys Grafana into the shared `mergemarket-observability` namespace (created
+# by infra/k3s/sonarqube.yml). Grafana is reachable on NodePort 30300 -> 3000.
+#
+# Provisioning (datasources + dashboard provider) is mounted from ConfigMaps
+# defined below. The dashboard JSON itself lives in infra/grafana/dashboards/
+# and is loaded via a separate `grafana-dashboards` ConfigMap that the operator
+# generates from that folder (see docs/grafana-setup.md) — this keeps the large
+# dashboard JSON out of this manifest.
+#
+# Secrets (admin password, SonarQube token, GitHub token) come from the
+# `grafana-secrets` Secret, which is NOT committed. Create it on the VPS per the
+# runbook before applying this manifest.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mergemarket-observability
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: mergemarket-observability
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Datasource provisioning. Mirrors infra/grafana/provisioning/datasources/datasources.yml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: mergemarket-observability
+data:
+  datasources.yml: |
+    apiVersion: 1
+    datasources:
+      - name: SonarQube
+        uid: sonarqube_api
+        type: yesoreyeram-infinity-datasource
+        access: proxy
+        url: ${SONAR_HOST_URL}
+        basicAuth: true
+        basicAuthUser: ${SONAR_TOKEN}
+        jsonData:
+          auth_method: basicAuth
+          allowedHosts:
+            - ${SONAR_HOST_URL}
+          tlsSkipVerify: false
+        secureJsonData:
+          basicAuthPassword: ""
+        editable: false
+      - name: GitHub
+        uid: github_api
+        type: yesoreyeram-infinity-datasource
+        access: proxy
+        url: https://api.github.com
+        jsonData:
+          auth_method: bearerToken
+          allowedHosts:
+            - https://api.github.com
+          httpHeaderName1: X-GitHub-Api-Version
+        secureJsonData:
+          bearerToken: ${GITHUB_TOKEN}
+          httpHeaderValue1: "2022-11-28"
+        editable: false
+---
+# Dashboard provider. Mirrors infra/grafana/provisioning/dashboards/provider.yml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: mergemarket-observability
+data:
+  provider.yml: |
+    apiVersion: 1
+    providers:
+      - name: MergeMarket
+        orgId: 1
+        folder: MergeMarket
+        type: file
+        disableDeletion: true
+        updateIntervalSeconds: 30
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: mergemarket-observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 472
+        runAsUser: 472
+        runAsGroup: 472
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            # Install the Infinity datasource plugin at startup (the SonarQube
+            # and GitHub APIs have no native Grafana datasource).
+            - name: GF_INSTALL_PLUGINS
+              value: "yesoreyeram-infinity-datasource"
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secrets
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secrets
+                  key: admin-password
+            # Consumed by the datasource provisioning (${...} expansion).
+            - name: SONAR_HOST_URL
+              value: "http://95.111.228.35:9000"
+            - name: SONAR_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secrets
+                  key: sonar-token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secrets
+                  key: github-token
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: grafana-data
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: mergemarket-observability
+spec:
+  type: NodePort
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      nodePort: 30300

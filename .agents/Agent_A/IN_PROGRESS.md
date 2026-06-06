@@ -21,17 +21,16 @@ Status          : No task in progress
 
 ## Progress So Far
 
-_Nothing in progress. A-08 (Auth Service), A-09 (Kong API Gateway
-Configuration), and A-11 (SonarQube on VPS) were completed this session — see
-DONE.md. A-10 remains in TODO because the user explicitly asked to skip it. The
-next available non-skipped task is A-12 (Grafana Dashboard on VPS), which
-depends on A-11 (done)._
+_Nothing in progress. A-12 (Grafana Dashboard on VPS) was completed this
+session — see DONE.md. A-10 stays in TODO (skipped per the user's explicit
+instruction; its `Jenkinsfile` already exists). The next available non-skipped
+task is A-13 (Automated Database Backups), which depends on A-02 (done)._
 
 ---
 
 ## Decisions Made This Session
 
-_See the A-08, A-09, and A-11 entries in DONE.md._
+_See the A-12 entry in DONE.md._
 
 ---
 

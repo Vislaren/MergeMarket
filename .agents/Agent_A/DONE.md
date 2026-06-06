@@ -550,6 +550,73 @@ single-replica deployment, health probes, and a NodePort service.
 
 ---
 
+### [DONE] A-12 — Grafana Dashboard on VPS
+**Session:** 7
+**Completed by:** Agent A
+**Commit:** `session(A-12): grafana quality & pipeline dashboard`
+
+**What was built:**
+A Grafana deployment for the MergeMarket **quality & pipeline** dashboard,
+sourced from the **SonarQube API** and the **GitHub Actions API**. Grafana runs
+on the VPS at `http://95.111.228.35:3000` (NodePort `30300` → container `3000`),
+in the shared `mergemarket-observability` namespace created by A-11.
+
+Deliverables:
+- `infra/k3s/grafana.yml` — self-contained K3s manifest: namespace, a 2Gi PVC,
+  two provisioning ConfigMaps (datasources + dashboard provider), the Grafana
+  Deployment (image `grafana/grafana:11.1.0`, installs the Infinity plugin via
+  `GF_INSTALL_PLUGINS`, runs as uid 472, `/api/health` probes), and a NodePort
+  Service.
+- `infra/grafana/provisioning/datasources/datasources.yml` — SonarQube + GitHub
+  Infinity datasources (mirrored into the manifest ConfigMap).
+- `infra/grafana/provisioning/dashboards/provider.yml` — file-based provider.
+- `infra/grafana/dashboards/mergemarket-quality.json` — 7-panel dashboard:
+  coverage %, open bugs, vulnerabilities, pipeline pass/fail rate (donut),
+  coverage-over-time, bugs/vulnerabilities-over-time, and build-duration-over-
+  time. Two dashboard variables (`sonar_project`, `gh_repo`) retarget it
+  without editing JSON.
+- `.env.example` — Grafana block (`GRAFANA_PORT`, admin creds, `GITHUB_TOKEN`;
+  reuses the existing `SONAR_HOST_URL`/`SONAR_TOKEN`).
+- `docs/grafana-setup.md` — full runbook (secret creation, dashboard ConfigMap
+  command, deploy/reconcile, firewall, local-Docker alternative, limitations).
+
+**Verification:** dashboard JSON parses (`json.load`); all three YAML files and
+the 6-document `grafana.yml` parse (`yaml.safe_load_all`), including the two
+embedded ConfigMap YAML payloads. The live VPS was **not** modified from this
+local session (unreachable from local dev) — artefacts are committed for
+application on the VPS, matching the A-11 approach.
+
+**Key decisions made:**
+- **Infinity datasource (`yesoreyeram-infinity-datasource`)** for both APIs —
+  neither SonarQube nor GitHub has a native Grafana datasource; Infinity is the
+  standard $0 way to read arbitrary JSON HTTP APIs and satisfies the task's
+  "SonarQube API and GitHub API data sources" literally.
+- **No secrets committed.** Admin password + SonarQube/GitHub tokens come from a
+  `grafana-secrets` K8s Secret the operator creates on the VPS (documented).
+  `.env.example` holds only placeholders.
+- **Dashboard JSON lives in `infra/grafana/dashboards/`** (per the task output)
+  and is loaded via a `grafana-dashboards` ConfigMap generated from that folder
+  with one documented `kubectl create configmap --from-file` command — keeping
+  the large JSON out of the manifest YAML.
+- **SonarQube token auth** is sent as the HTTP Basic username (empty password),
+  per SonarQube's documented scheme; **GitHub** uses a Bearer fine-grained PAT.
+
+**API contracts changed:** No.
+
+**Known limitations:**
+- **Pipeline panels (pass/fail rate, build duration) depend on GitHub Actions
+  run data.** CI was migrated to Jenkins (`Jenkinsfile`, A-10) and the Actions
+  workflow dir was deleted previously, so those two panels are empty until an
+  Actions workflow runs again (or the panels are re-pointed at a Jenkins
+  source). This is the same CI-source reconciliation flagged in A-04/A-10.
+- Dashboard defaults `sonar_project=mergemarket`; confirm against the final
+  `sonar.projectKey` (no `sonar-project.properties` exists in the repo yet).
+- Provisioning YAML is duplicated between `infra/grafana/provisioning/` and the
+  ConfigMaps in `grafana.yml` (the manifest is intentionally self-contained);
+  edits must be mirrored.
+
+---
+
 ## Entry Format
 
 When you complete a task, add an entry using this format:

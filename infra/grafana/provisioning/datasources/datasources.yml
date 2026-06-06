@@ -1,0 +1,53 @@
+# Grafana datasource provisioning (A-12)
+#
+# Both data sources use the Infinity datasource plugin
+# (yesoreyeram-infinity-datasource): neither SonarQube nor GitHub ships a
+# native Grafana datasource, and Infinity is the standard $0 way to read
+# arbitrary JSON HTTP APIs. The plugin is installed at container start via
+# GF_INSTALL_PLUGINS (see infra/k3s/grafana.yml).
+#
+# Secrets are injected from environment variables that Grafana reads from the
+# `grafana-secrets` Kubernetes Secret (see the runbook). Nothing here is a real
+# credential. Grafana expands ${VAR} from the process environment.
+apiVersion: 1
+
+datasources:
+  # ── SonarQube REST API ──────────────────────────────────────────────────
+  # Auth: a SonarQube user token is sent as the HTTP Basic *username* with an
+  # empty password (SonarQube's documented token-auth scheme).
+  - name: SonarQube
+    uid: sonarqube_api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    url: ${SONAR_HOST_URL}
+    basicAuth: true
+    basicAuthUser: ${SONAR_TOKEN}
+    jsonData:
+      auth_method: basicAuth
+      # Restrict which hosts Infinity may call from this datasource.
+      allowedHosts:
+        - ${SONAR_HOST_URL}
+      tlsSkipVerify: false
+    secureJsonData:
+      basicAuthPassword: ""
+    editable: false
+
+  # ── GitHub REST API ─────────────────────────────────────────────────────
+  # Auth: a fine-grained PAT (read-only on Actions + metadata) sent as a
+  # Bearer token. Used for the pipeline pass/fail and build-duration panels via
+  # the Actions "workflow runs" endpoint.
+  - name: GitHub
+    uid: github_api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    url: https://api.github.com
+    jsonData:
+      auth_method: bearerToken
+      allowedHosts:
+        - https://api.github.com
+      # Pin the GitHub API version for stable response shapes.
+      httpHeaderName1: X-GitHub-Api-Version
+    secureJsonData:
+      bearerToken: ${GITHUB_TOKEN}
+      httpHeaderValue1: "2022-11-28"
+    editable: false

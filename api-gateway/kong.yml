@@ -19,19 +19,23 @@ services:
         methods: ["POST"]
         strip_path: false
 
-  - name: bff-service
-    url: http://bff:8082
+  - name: search-service
+    url: http://search:8087
     routes:
       - name: search
         paths: ["/api/v1/search"]
         methods: ["GET"]
         strip_path: false
+
+  - name: userdata-service
+    url: http://userdata:8090
+    routes:
       - name: wishlist
         paths: ["/api/v1/wishlist"]
         methods: ["GET", "POST"]
         strip_path: false
       - name: wishlist-item
-        paths: ["/api/v1/wishlist/"]
+        paths: ["~/api/v1/wishlist/[^/]+$"]
         methods: ["DELETE"]
         strip_path: false
       - name: alerts
@@ -39,15 +43,11 @@ services:
         methods: ["GET", "POST"]
         strip_path: false
       - name: alert-item
-        paths: ["/api/v1/alerts/"]
+        paths: ["~/api/v1/alerts/[^/]+$"]
         methods: ["DELETE"]
         strip_path: false
       - name: savings
         paths: ["/api/v1/savings"]
-        methods: ["GET"]
-        strip_path: false
-      - name: truth-score
-        paths: ["~/api/v1/products/[^/]+/truth-score$"]
         methods: ["GET"]
         strip_path: false
 
@@ -69,7 +69,14 @@ plugins:
       hide_client_headers: false
 
   - name: jwt
-    service: bff-service
+    service: search-service
+    config:
+      key_claim_name: iss
+      claims_to_verify: ["exp"]
+      run_on_preflight: false
+
+  - name: jwt
+    service: userdata-service
     config:
       key_claim_name: iss
       claims_to_verify: ["exp"]
@@ -87,4 +94,4 @@ consumers:
     jwt_secrets:
       - key: mergemarket-auth
         algorithm: HS256
-        secret: ${JWT_SECRET}
+        secret: __JWT_SECRET__

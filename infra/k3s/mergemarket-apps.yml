@@ -1,0 +1,587 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mergemarket
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mergemarket-config
+  namespace: mergemarket
+data:
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: mergemarket
+  DB_USER: postgres
+  TIMESCALE_HOST: postgres
+  TIMESCALE_PORT: "5432"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  AUTH_PORT: "8091"
+  JWT_EXPIRY_HOURS: "1"
+  REFRESH_TOKEN_EXPIRY_DAYS: "30"
+  AUTH_SESSION_TTL: 1h
+  AUTH_TLS_CERT_FILE: /certs/auth.local.crt
+  AUTH_TLS_KEY_FILE: /certs/auth.local.key
+  PROXY_VALIDATOR_PORT: "8086"
+  PROXY_POOL_KEY: proxy_pool
+  PROXY_POOL_TTL: 5m
+  PROXY_TEST_URL: http://www.google.com/generate_204
+  PROXY_TEST_TIMEOUT: 8s
+  PROXY_VALIDATOR_CONCURRENCY: "50"
+  PROXY_REFRESH_INTERVAL: 4m
+  PROXY_POLITENESS_MIN: 50ms
+  PROXY_POLITENESS_MAX: 400ms
+  SCRAPER_PORT: "8083"
+  SCRAPER_CONFIG_DIR: /app/configs
+  SCRAPER_WORKERS: "10"
+  SCRAPER_JOB_QUEUE: scrape_queue
+  SCRAPER_NORMALIZE_QUEUE: normalize_queue
+  SCRAPER_QUEUE_POLL_TIMEOUT: 5s
+  SCRAPER_SCRAPE_TIMEOUT: 15s
+  SCRAPER_CIRCUIT_THRESHOLD: "5"
+  SCRAPER_CIRCUIT_COOLDOWN: 60s
+  SCRAPER_USE_PROXY: "true"
+  NORMALIZATION_PORT: "8084"
+  NORMALIZATION_WORKERS: "5"
+  NORMALIZATION_QUEUE_POLL_TIMEOUT: 5s
+  NORMALIZATION_AFFILIATE_CONFIG: ""
+  HISTORY_PORT: "8085"
+  HISTORY_SNAPSHOT_INTERVAL: 24h
+  HISTORY_SNAPSHOT_ON_START: "false"
+  HISTORY_HEARTBEAT_INTERVAL: 1h
+  HISTORY_HEARTBEAT_ON_START: "true"
+  HISTORY_HEARTBEAT_MODE: db
+  HISTORY_HEARTBEAT_TIMEOUT: 10s
+  HISTORY_ALERT_QUEUE: price_alert_events
+  SEARCH_PORT: "8087"
+  SEARCH_CACHE_PREFIX: "search:"
+  SEARCH_CACHE_TTL: 15m
+  SEARCH_CACHE_STALE_AFTER: 5m
+  SEARCH_MAX_RESULTS: "50"
+  USERDATA_PORT: "8090"
+  USERDATA_JWT_ISSUER: mergemarket-auth
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: mergemarket
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: mergemarket
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: timescale/timescaledb:latest-pg16
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: mergemarket-config
+                  key: DB_USER
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: mergemarket-config
+                  key: DB_NAME
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mergemarket-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "mergemarket"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+        - name: initdb
+          configMap:
+            name: postgres-initdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: mergemarket
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - if [ -n "$REDIS_PASSWORD" ]; then exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"; else exec redis-server --appendonly yes; fi
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mergemarket-secrets
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "redis-cli ${REDIS_PASSWORD:+-a $REDIS_PASSWORD} ping | grep -q PONG"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: mergemarket
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+        - name: auth
+          image: mergemarket/auth:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8091
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: certs
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-validator
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-validator
+  template:
+    metadata:
+      labels:
+        app: proxy-validator
+    spec:
+      containers:
+        - name: proxy-validator
+          image: mergemarket/proxy-validator:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8086
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scraper
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scraper
+  template:
+    metadata:
+      labels:
+        app: scraper
+    spec:
+      containers:
+        - name: scraper
+          image: mergemarket/scraper:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+          volumeMounts:
+            - name: configs
+              mountPath: /app/configs
+              readOnly: true
+      volumes:
+        - name: configs
+          configMap:
+            name: scraper-configs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: normalization
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: normalization
+  template:
+    metadata:
+      labels:
+        app: normalization
+    spec:
+      containers:
+        - name: normalization
+          image: mergemarket/normalization:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: history
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: history
+  template:
+    metadata:
+      labels:
+        app: history
+    spec:
+      containers:
+        - name: history
+          image: mergemarket/history:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      containers:
+        - name: search
+          image: mergemarket/search:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8087
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userdata
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: userdata
+  template:
+    metadata:
+      labels:
+        app: userdata
+    spec:
+      containers:
+        - name: userdata
+          image: mergemarket/userdata:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8090
+          envFrom:
+            - configMapRef:
+                name: mergemarket-config
+            - secretRef:
+                name: mergemarket-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+  namespace: mergemarket
+spec:
+  selector:
+    app: auth
+  ports:
+    - name: http
+      port: 8091
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy-validator
+  namespace: mergemarket
+spec:
+  selector:
+    app: proxy-validator
+  ports:
+    - name: http
+      port: 8086
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scraper
+  namespace: mergemarket
+spec:
+  selector:
+    app: scraper
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: normalization
+  namespace: mergemarket
+spec:
+  selector:
+    app: normalization
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: history
+  namespace: mergemarket
+spec:
+  selector:
+    app: history
+  ports:
+    - name: http
+      port: 8085
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search
+  namespace: mergemarket
+spec:
+  selector:
+    app: search
+  ports:
+    - name: http
+      port: 8087
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: userdata
+  namespace: mergemarket
+spec:
+  selector:
+    app: userdata
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: mergemarket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.7
+          command: ["/bin/sh", "-c"]
+          args:
+            - secret=$(printf '%s' "$JWT_SECRET" | sed 's/[\/&]/\\&/g'); sed "s|__JWT_SECRET__|${secret}|g" /kong/template/kong.yml > /kong/generated/kong.yml; exec kong docker-start
+          ports:
+            - name: proxy
+              containerPort: 8000
+            - name: admin
+              containerPort: 8001
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /kong/generated/kong.yml
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mergemarket-secrets
+                  key: JWT_SECRET
+          volumeMounts:
+            - name: kong-template
+              mountPath: /kong/template
+              readOnly: true
+            - name: kong-generated
+              mountPath: /kong/generated
+      volumes:
+        - name: kong-template
+          configMap:
+            name: kong-config
+        - name: kong-generated
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+  namespace: mergemarket
+spec:
+  type: NodePort
+  selector:
+    app: kong
+  ports:
+    - name: proxy
+      port: 8000
+      targetPort: proxy
+      nodePort: 30088
+    - name: admin
+      port: 8001
+      targetPort: admin
+      nodePort: 30081

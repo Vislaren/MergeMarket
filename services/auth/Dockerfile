@@ -7,8 +7,10 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/auth-service ./cmd/auth
 
 FROM alpine:3.20
-RUN adduser -D -H appuser
+RUN apk add --no-cache openssl && adduser -D -H appuser && mkdir -p /certs && chown appuser:appuser /certs
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 USER appuser
 COPY --from=build /out/auth-service /usr/local/bin/auth-service
 EXPOSE 8091
-ENTRYPOINT ["/usr/local/bin/auth-service"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

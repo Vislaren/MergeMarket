@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MergeMarket — Compare Prices Instantly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ─── Design tokens (mirrors apps/mobile/lib/theme/colours.dart) ─── */
+    :root {
+      --navy:     #1A2B4A;
+      --navy-dk:  #0f1e35;
+      --red:      #C0392B;
+      --red-dk:   #a93226;
+      --bg:       #F4F6F9;
+      --white:    #FFFFFF;
+      --border:   #D5DCE8;
+      --txt:      #1A1A1A;
+      --txt2:     #555555;
+      --green:    #27AE60;
+      --gold:     #FFD700;
+      --amber:    #F39C12;
+      --radius:   12px;
+    }
+
+    /* ─── Reset ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--txt); }
+    img  { max-width: 100%; display: block; }
+    a    { color: inherit; text-decoration: none; }
+
+    /* ─── Utility ─── */
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 5%; }
+
+    /* ─── Scroll-reveal ─── */
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .55s ease, transform .55s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ══════════════════════════════════════════
+       NAVBAR
+    ══════════════════════════════════════════ */
+    nav {
+      position: fixed; inset: 0 0 auto 0; z-index: 999;
+      height: 64px;
+      background: var(--navy);
+      display: flex; align-items: center;
+      padding: 0 5%;
+      box-shadow: 0 2px 20px rgba(0,0,0,.22);
+      transition: background .3s;
+    }
+    .nav-inner {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .nav-logo-box {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: var(--red);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-logo-text { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -.3px; }
+    .nav-logo-text em { color: var(--gold); font-style: normal; }
+
+    .nav-links {
+      list-style: none; display: flex; align-items: center; gap: 32px;
+    }
+    .nav-links a {
+      font-size: 14px; font-weight: 500;
+      color: rgba(255,255,255,.72);
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-links .nav-cta {
+      background: var(--red); color: #fff !important;
+      padding: 8px 20px; border-radius: 8px; font-weight: 600;
+      transition: background .2s;
+    }
+    .nav-links .nav-cta:hover { background: var(--red-dk); }
+
+    .nav-burger {
+      display: none; flex-direction: column; gap: 5px;
+      background: none; border: none; cursor: pointer; padding: 4px;
+    }
+    .nav-burger span {
+      width: 24px; height: 2px; background: #fff;
+      border-radius: 2px; transition: all .3s;
+    }
+
+    /* ══════════════════════════════════════════
+       HERO
+    ══════════════════════════════════════════ */
+    .hero {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dk) 60%, #1e3a5f 100%);
+      display: flex; align-items: center;
+      padding: 100px 5% 72px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -20%; right: -10%;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(192,57,43,.16) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: ''; position: absolute; bottom: -10%; left: -5%;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(255,215,0,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-content { max-width: 580px; position: relative; z-index: 1; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,215,0,.12);
+      border: 1px solid rgba(255,215,0,.3);
+      border-radius: 100px;
+      padding: 6px 16px;
+      margin-bottom: 28px;
+    }
+    .hero-badge span {
+      font-size: 12px; font-weight: 600; letter-spacing: .6px;
+      text-transform: uppercase; color: var(--gold);
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 5.2vw, 60px);
+      font-weight: 800; line-height: 1.1;
+      letter-spacing: -1px;
+      color: #fff; margin-bottom: 22px;
+    }
+    .hero h1 em { color: var(--gold); font-style: normal; }
+
+    .hero p {
+      font-size: 18px; line-height: 1.7;
+      color: rgba(255,255,255,.72);
+      margin-bottom: 42px; max-width: 480px;
+    }
+
+    .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--red); color: #fff;
+      padding: 14px 28px; border-radius: var(--radius);
+      font-size: 15px; font-weight: 700;
+      box-shadow: 0 4px 18px rgba(192,57,43,.4);
+      transition: all .22s;
+    }
+    .btn-primary:hover {
+      background: var(--red-dk);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(192,57,43,.5);
+    }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      color: #fff;
+      padding: 14px 28px; border-radius: var(--radius);
+      font-size: 15px; font-weight: 600;
+      transition: background .22s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.18); }
+
+    .hero-stats {
+      display: flex; gap: 44px; flex-wrap: wrap;
+      margin-top: 56px; padding-top: 40px;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+    .hero-stat .num {
+      font-size: 30px; font-weight: 800; color: #fff;
+    }
+    .hero-stat .num em { color: var(--gold); font-style: normal; }
+    .hero-stat .lbl {
+      font-size: 13px; color: rgba(255,255,255,.5); margin-top: 2px;
+    }
+
+    /* Phone mockup */
+    .hero-visual {
+      position: absolute; right: 5%; top: 50%;
+      transform: translateY(-50%);
+      z-index: 1;
+    }
+    .phone {
+      width: 250px;
+      background: #0b1929;
+      border: 2px solid rgba(255,255,255,.12);
+      border-radius: 38px; padding: 14px;
+      box-shadow: 0 40px 72px rgba(0,0,0,.55);
+    }
+    .phone-screen { background: var(--bg); border-radius: 26px; padding: 14px; }
+    .ph-search {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 12px;
+      display: flex; align-items: center; gap: 7px;
+      margin-bottom: 12px;
+    }
+    .ph-search span { font-size: 11px; color: var(--txt2); }
+    .ph-card {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px; margin-bottom: 9px;
+    }
+    .ph-card-title { font-size: 10px; font-weight: 600; margin-bottom: 5px; }
+    .ph-prices { display: flex; gap: 5px; flex-wrap: wrap; }
+    .ptag {
+      font-size: 9px; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .ptag.g { background: rgba(39,174,96,.15); color: var(--green); }
+    .ptag.a { background: rgba(243,156,18,.15); color: var(--amber); }
+    .ptag.r { background: rgba(192,57,43,.12); color: var(--red); }
+    .ph-count { font-size: 8px; color: var(--txt2); margin-top: 5px; }
+
+    /* ══════════════════════════════════════════
+       SHARED SECTION STYLES
+    ══════════════════════════════════════════ */
+    section { padding: 88px 5%; }
+
+    .sec-label {
+      font-size: 12px; font-weight: 700; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--red); margin-bottom: 10px;
+    }
+    .sec-title {
+      font-size: clamp(26px, 4vw, 40px); font-weight: 800;
+      color: var(--navy); line-height: 1.18; margin-bottom: 14px;
+    }
+    .sec-sub {
+      font-size: 16px; color: var(--txt2); line-height: 1.7;
+    }
+
+    /* ══════════════════════════════════════════
+       FEATURES
+    ══════════════════════════════════════════ */
+    #features { background: #fff; }
+
+    .features-head {
+      text-align: center; max-width: 620px; margin: 0 auto 56px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+    }
+
+    .f-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px;
+      transition: transform .22s, box-shadow .22s;
+    }
+    .f-card:hover { transform: translateY(-5px); box-shadow: 0 14px 36px rgba(26,43,74,.1); }
+
+    .f-icon {
+      width: 48px; height: 48px; border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 18px;
+    }
+    .f-icon.navy  { background: rgba(26,43,74,.1);  color: var(--navy);  }
+    .f-icon.red   { background: rgba(192,57,43,.1); color: var(--red);   }
+    .f-icon.green { background: rgba(39,174,96,.1); color: var(--green); }
+    .f-icon.gold  { background: rgba(255,215,0,.2); color: #b8960c;      }
+    .f-icon.amber { background: rgba(243,156,18,.12);color: var(--amber); }
+
+    .f-card h3 { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+    .f-card p  { font-size: 14px; color: var(--txt2); line-height: 1.7; }
+
+    /* ══════════════════════════════════════════
+       HOW IT WORKS
+    ══════════════════════════════════════════ */
+    #how { background: var(--bg); }
+
+    .how-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 64px; align-items: center;
+    }
+
+    .steps { display: flex; flex-direction: column; gap: 30px; }
+    .step  { display: flex; gap: 20px; align-items: flex-start; }
+
+    .step-num {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: var(--radius); background: var(--navy);
+      color: #fff; font-size: 18px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .step h3 { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+    .step p  { font-size: 14px; color: var(--txt2); line-height: 1.7; }
+
+    /* Demo card */
+    .demo-card {
+      background: var(--navy); border-radius: 22px; padding: 32px;
+      position: relative; overflow: hidden;
+    }
+    .demo-card::before {
+      content: ''; position: absolute; top: -30%; right: -20%;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(255,215,0,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .demo-hdr {
+      font-size: 12px; font-weight: 600;
+      color: rgba(255,255,255,.55); margin-bottom: 16px;
+      position: relative; z-index: 1;
+    }
+    .demo-row {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; position: relative; z-index: 1;
+    }
+    .demo-store { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.85); }
+    .demo-price { font-size: 14px; font-weight: 700; }
+    .demo-price.best { color: var(--green); }
+    .demo-price.mid  { color: rgba(255,255,255,.7); }
+    .demo-price.hi   { color: rgba(255,255,255,.4); text-decoration: line-through; }
+    .best-badge {
+      font-size: 9px; font-weight: 700; letter-spacing: .4px;
+      background: rgba(39,174,96,.2); color: var(--green);
+      padding: 2px 8px; border-radius: 4px; margin-left: 8px;
+    }
+    .demo-savings {
+      background: rgba(255,215,0,.12);
+      border: 1px solid rgba(255,215,0,.25);
+      border-radius: 10px; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 14px; position: relative; z-index: 1;
+    }
+    .demo-savings-lbl { font-size: 12px; color: rgba(255,255,255,.55); }
+    .demo-savings-val { font-size: 18px; font-weight: 800; color: var(--gold); }
+
+    /* ══════════════════════════════════════════
+       ABOUT US
+    ══════════════════════════════════════════ */
+    #about { background: #fff; }
+
+    .about-head { text-align: center; max-width: 620px; margin: 0 auto 56px; }
+
+    .team-grid {
+      display: flex; flex-wrap: wrap;
+      gap: 30px; justify-content: center;
+    }
+
+    .team-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 22px; padding: 40px 36px;
+      text-align: center; width: 340px;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .team-card:hover { transform: translateY(-8px); box-shadow: 0 24px 56px rgba(26,43,74,.13); }
+
+    .team-avatar {
+      width: 150px; height: 150px; border-radius: 50%;
+      object-fit: cover; object-position: top center;
+      margin: 0 auto 22px;
+      border: 4px solid #fff;
+      box-shadow: 0 8px 28px rgba(26,43,74,.18);
+    }
+
+    .role-pill {
+      display: inline-block;
+      font-size: 11px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; padding: 4px 14px; border-radius: 100px;
+      margin-bottom: 12px;
+    }
+    .role-pill.po { background: rgba(192,57,43,.12); color: var(--red); }
+    .role-pill.sm { background: rgba(26,43,74,.1);   color: var(--navy); }
+
+    .team-card h3 {
+      font-size: 19px; font-weight: 700; color: var(--navy);
+      line-height: 1.3; margin-bottom: 10px;
+    }
+    .team-divider {
+      width: 40px; height: 3px; background: var(--red);
+      border-radius: 2px; margin: 12px auto 16px;
+    }
+    .team-card p { font-size: 14px; color: var(--txt2); line-height: 1.7; }
+
+    /* ══════════════════════════════════════════
+       DOWNLOAD CTA
+    ══════════════════════════════════════════ */
+    #download {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dk) 100%);
+      text-align: center; position: relative; overflow: hidden;
+    }
+    #download::before {
+      content: ''; position: absolute; top: -40%; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(192,57,43,.13) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .dl-inner { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
+    #download .sec-label { color: var(--gold); }
+    #download .sec-title { color: #fff; }
+    #download .sec-sub   { color: rgba(255,255,255,.65); margin: 0 auto 42px; }
+
+    .dl-btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: var(--red); color: #fff;
+      padding: 18px 38px; border-radius: 14px;
+      font-size: 17px; font-weight: 700; border: none; cursor: pointer;
+      box-shadow: 0 8px 28px rgba(192,57,43,.45);
+      transition: all .22s;
+      text-decoration: none;
+    }
+    .dl-btn:hover {
+      background: var(--red-dk);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 36px rgba(192,57,43,.55);
+    }
+
+    .dl-meta {
+      margin-top: 22px; font-size: 13px; color: rgba(255,255,255,.4);
+    }
+    .dl-meta span { margin: 0 8px; }
+
+    /* ══════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════ */
+    footer {
+      background: #0d1824;
+      padding: 28px 5%;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .foot-logo { display: flex; align-items: center; gap: 8px; }
+    .foot-logo-text { font-size: 16px; font-weight: 700; color: rgba(255,255,255,.65); }
+    .foot-logo-text em { color: var(--gold); font-style: normal; }
+
+    .foot-copy { font-size: 13px; color: rgba(255,255,255,.3); }
+
+    .foot-links { display: flex; gap: 20px; }
+    .foot-links a {
+      font-size: 13px; color: rgba(255,255,255,.38);
+      transition: color .2s;
+    }
+    .foot-links a:hover { color: rgba(255,255,255,.75); }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════ */
+    @media (max-width: 920px) {
+      .hero-visual { display: none; }
+      .how-grid { grid-template-columns: 1fr; gap: 40px; }
+      .nav-links { display: none; }
+      .nav-links.open {
+        display: flex; flex-direction: column;
+        position: fixed; top: 64px; inset-inline: 0;
+        background: rgba(26,43,74,.98);
+        padding: 24px 5%; gap: 20px;
+        border-top: 1px solid rgba(255,255,255,.1);
+      }
+      .nav-burger { display: flex; }
+    }
+
+    @media (max-width: 580px) {
+      section { padding: 64px 5%; }
+      .hero-btns { flex-direction: column; }
+      .hero-stats { gap: 24px; }
+      footer { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ NAVBAR ═══ -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#home" class="nav-logo">
+        <div class="nav-logo-box">
+          <!-- MM monogram icon -->
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M4 18V6l4 5 4-5 4 5V6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 18h16" stroke="#FFD700" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="nav-logo-text">Merge<em>Market</em></span>
+      </a>
+
+      <button class="nav-burger" id="navBurger" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#about">Team</a></li>
+        <li><a href="#download" class="nav-cta">Download APK</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="hero" id="home">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24">
+          <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="#FFD700"/>
+        </svg>
+        <span>Smart Price Comparison · Android App</span>
+      </div>
+
+      <h1>Find the <em>Best Price</em><br>Across Every Store</h1>
+
+      <p>
+        Search once — receive live prices from 50 to 150 stores in under 5&nbsp;seconds.
+        Never overpay again. MergeMarket does the legwork so you can focus on buying smart.
+      </p>
+
+      <div class="hero-btns">
+        <a href="#download" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download APK
+        </a>
+        <a href="#features" class="btn-ghost">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="10 8 16 12 10 16 10 8"/>
+          </svg>
+          Explore Features
+        </a>
+      </div>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="num">50–<em>150</em></span>
+          <span class="lbl">Stores compared</span>
+        </div>
+        <div class="hero-stat">
+          <span class="num"><em>&lt;5 s</em></span>
+          <span class="lbl">Live results</span>
+        </div>
+        <div class="hero-stat">
+          <span class="num"><em>Free</em></span>
+          <span class="lbl">Forever</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone mockup (hidden on mobile) -->
+    <div class="hero-visual" aria-hidden="true">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="ph-search">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span>iPhone 15 Pro 256GB</span>
+          </div>
+          <div class="ph-card">
+            <div class="ph-card-title">iPhone 15 Pro 256GB</div>
+            <div class="ph-prices">
+              <span class="ptag g">XAF 580,000</span>
+              <span class="ptag a">XAF 620,000</span>
+              <span class="ptag r">XAF 699,000</span>
+            </div>
+            <div class="ph-count">Found in 87 stores</div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-card-title">Samsung Galaxy S25+</div>
+            <div class="ph-prices">
+              <span class="ptag g">XAF 430,000</span>
+              <span class="ptag a">XAF 462,000</span>
+            </div>
+            <div class="ph-count">Found in 64 stores</div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-card-title">Sony WH-1000XM5</div>
+            <div class="ph-prices">
+              <span class="ptag g">XAF 195,000</span>
+              <span class="ptag a">XAF 218,000</span>
+            </div>
+            <div class="ph-count">Found in 52 stores</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FEATURES ═══ -->
+  <section id="features">
+    <div class="features-head reveal">
+      <div class="sec-label">What we offer</div>
+      <h2 class="sec-title">Everything you need to shop smarter</h2>
+      <p class="sec-sub">
+        From real-time price scanning to intelligent alerts and a personalised savings dashboard —
+        MergeMarket is your complete shopping intelligence toolkit.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="f-card reveal">
+        <div class="f-icon navy">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </div>
+        <h3>Live Price Search</h3>
+        <p>Type a product name and get real-time prices from 50–150 stores within 5 seconds. No manual tab-hopping, ever.</p>
+      </div>
+
+      <div class="f-card reveal">
+        <div class="f-icon red">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h3>Price History Charts</h3>
+        <p>View historical price trends stored in TimescaleDB. Know whether to buy today or wait for the next dip.</p>
+      </div>
+
+      <div class="f-card reveal">
+        <div class="f-icon green">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <h3>Price-Drop Alerts</h3>
+        <p>Set a target price threshold and get notified the moment any store drops below it. Never miss a deal.</p>
+      </div>
+
+      <div class="f-card reveal">
+        <div class="f-icon gold">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+        <h3>Wishlist &amp; Tracking</h3>
+        <p>Save products and watch their price trend over time with intuitive visualisations built with fl_chart.</p>
+      </div>
+
+      <div class="f-card reveal">
+        <div class="f-icon amber">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <h3>Savings Dashboard</h3>
+        <p>See how much you've saved since day one — beautiful charts visualise your cumulative smart-shopping impact.</p>
+      </div>
+
+      <div class="f-card reveal">
+        <div class="f-icon navy">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h3>Secure &amp; Private</h3>
+        <p>AES-256 encryption, JWT-secured sessions, and zero third-party data sharing. Your data stays yours, always.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ HOW IT WORKS ═══ -->
+  <section id="how">
+    <div class="how-grid container" style="padding:0;">
+      <!-- Steps -->
+      <div>
+        <div class="sec-label reveal">How it works</div>
+        <h2 class="sec-title reveal">Three steps to smarter shopping</h2>
+        <p class="sec-sub reveal" style="margin-bottom:40px;">
+          MergeMarket's microservice engine scrapes, normalises, and ranks prices in real time
+          so you always see the freshest data from every store.
+        </p>
+        <div class="steps">
+          <div class="step reveal">
+            <div class="step-num">1</div>
+            <div>
+              <h3>Search any product</h3>
+              <p>Type a product name or scan a barcode. Our config-driven scraper engine fires across hundreds of store endpoints simultaneously.</p>
+            </div>
+          </div>
+          <div class="step reveal">
+            <div class="step-num">2</div>
+            <div>
+              <h3>Compare live results</h3>
+              <p>Within seconds, prices are normalised to a standard schema, ranked lowest to highest, and displayed with store details and price history.</p>
+            </div>
+          </div>
+          <div class="step reveal">
+            <div class="step-num">3</div>
+            <div>
+              <h3>Buy smart, save more</h3>
+              <p>Go directly to the cheapest store, set an alert for a future dip, or wishlist the item and come back when the time is right.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Demo card -->
+      <div class="demo-card reveal">
+        <div class="demo-hdr">Live comparison — "Sony WH-1000XM5"</div>
+        <div class="demo-row">
+          <span class="demo-store">TechZone</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="demo-price best">XAF 195,000</span>
+            <span class="best-badge">BEST</span>
+          </div>
+        </div>
+        <div class="demo-row">
+          <span class="demo-store">ElectroHub</span>
+          <span class="demo-price mid">XAF 210,000</span>
+        </div>
+        <div class="demo-row">
+          <span class="demo-store">MegaStore</span>
+          <span class="demo-price mid">XAF 223,500</span>
+        </div>
+        <div class="demo-row">
+          <span class="demo-store">PremiumElec</span>
+          <span class="demo-price hi">XAF 249,000</span>
+        </div>
+        <div class="demo-savings">
+          <span class="demo-savings-lbl">You save vs. highest price</span>
+          <span class="demo-savings-val">XAF 54,000</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ ABOUT US ═══ -->
+  <section id="about">
+    <div class="about-head reveal">
+      <div class="sec-label">Our team</div>
+      <h2 class="sec-title">Built by passionate builders</h2>
+      <p class="sec-sub">
+        MergeMarket was designed and engineered by a dedicated two-person team committed to making
+        smart, data-driven shopping accessible to everyone.
+      </p>
+    </div>
+
+    <div class="team-grid">
+      <!-- Product Owner -->
+      <div class="team-card reveal">
+        <!-- Save your photo to: landing/assets/team/luiza.jpg -->
+        <img
+          src="assets/team/luiza.jpg"
+          alt="Nkengafeh Luiza Bih Etiendem"
+          class="team-avatar"
+        />
+        <span class="role-pill po">Product Owner</span>
+        <h3>Nkengafeh Luiza Bih Etiendem</h3>
+        <div class="team-divider"></div>
+        <p>
+          Drives the product vision and user experience of MergeMarket, ensuring every
+          feature delivers real value to shoppers. She defines the roadmap, owns the backlog,
+          and keeps the team laser-focused on user needs and business goals.
+        </p>
+      </div>
+
+      <!-- Scrum Master -->
+      <div class="team-card reveal">
+        <!-- Save your photo to: landing/assets/team/courage.jpg -->
+        <img
+          src="assets/team/courage.jpg"
+          alt="Teneng Courage Awa"
+          class="team-avatar"
+        />
+        <span class="role-pill sm">Scrum Master</span>
+        <h3>Teneng Courage Awa</h3>
+        <div class="team-divider"></div>
+        <p>
+          Facilitates the agile process and removes blockers so the team ships at full velocity.
+          He champions continuous improvement, coordinates sprints, and ensures every iteration
+          is delivered on time and to the highest standard.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ DOWNLOAD CTA ═══ -->
+  <section id="download">
+    <div class="dl-inner">
+      <div class="sec-label reveal">Available now</div>
+      <h2 class="sec-title reveal">Get MergeMarket on Android</h2>
+      <p class="sec-sub reveal">
+        Download the APK directly — no app store required.
+        Install in seconds and start saving on your very first search.
+      </p>
+
+      <!--
+        TODO: Replace the href value below with your actual VPS APK download URL.
+        Example: href="http://YOUR_VPS_IP/downloads/mergemarket.apk"
+      -->
+      <a
+        href="YOUR_VPS_APK_URL_HERE"
+        class="dl-btn reveal"
+        download="MergeMarket.apk"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download APK Free
+      </a>
+
+      <div class="dl-meta reveal">
+        <span>Android 8.0+</span>·<span>~45 MB</span>·<span>Free forever</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer>
+    <a href="#home" class="foot-logo">
+      <div class="nav-logo-box" style="width:28px;height:28px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M4 18V6l4 5 4-5 4 5V6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 18h16" stroke="#FFD700" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="foot-logo-text">Merge<em>Market</em></span>
+    </a>
+
+    <span class="foot-copy">© 2026 MergeMarket · ICT University</span>
+
+    <nav class="foot-links" aria-label="Footer navigation">
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#about">Team</a>
+      <a href="#download">Download</a>
+    </nav>
+  </footer>
+
+  <script>
+    /* ── Mobile nav toggle ── */
+    const burger   = document.getElementById('navBurger');
+    const navLinks = document.getElementById('navLinks');
+
+    burger.addEventListener('click', () => {
+      const open = navLinks.classList.toggle('open');
+      burger.setAttribute('aria-expanded', open);
+    });
+
+    /* Close mobile nav on link click */
+    navLinks.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => navLinks.classList.remove('open'));
+    });
+
+    /* ── Smooth-scroll for all anchor links ── */
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', e => {
+        const target = document.querySelector(anchor.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    /* ── Navbar opacity on scroll ── */
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.style.background = window.scrollY > 50
+        ? 'rgba(15, 30, 53, 0.97)'
+        : '#1A2B4A';
+    }, { passive: true });
+
+    /* ── Scroll-reveal via IntersectionObserver ── */
+    const revealEls = document.querySelectorAll('.reveal');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          /* Stagger siblings in the same parent */
+          const siblings = [...entry.target.parentElement.querySelectorAll('.reveal:not(.visible)')];
+          const delay = siblings.indexOf(entry.target) * 90;
+          setTimeout(() => entry.target.classList.add('visible'), delay);
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    revealEls.forEach(el => revealObserver.observe(el));
+  </script>
+</body>
+</html>

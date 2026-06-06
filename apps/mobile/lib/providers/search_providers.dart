@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/product.dart';
 import '../services/search_repository.dart';
+import 'auth_providers.dart';
 
 /// Shared HTTP client for the data layer. Closed automatically when the
 /// provider container is disposed. Override this in tests with a `MockClient`.
@@ -12,9 +13,10 @@ final httpClientProvider = Provider<http.Client>((ref) {
   return client;
 });
 
-/// The Search data-layer repository, wired to the shared HTTP client.
+/// The Search data-layer repository, wired to the authenticated HTTP client so
+/// search calls carry the Bearer token Kong requires (B-11).
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return SearchRepository(client: ref.watch(httpClientProvider));
+  return SearchRepository(client: ref.watch(authedHttpClientProvider));
 });
 
 /// Runs a search for [query] and exposes it as an [AsyncValue] so the Results

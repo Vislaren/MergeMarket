@@ -2,12 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/alert.dart';
 import '../services/alerts_repository.dart';
-import 'search_providers.dart';
+import 'auth_providers.dart';
 
-/// The alerts data-layer repository, wired to the shared HTTP client from
-/// [httpClientProvider].
+/// The alerts data-layer repository, wired to the authenticated HTTP client so
+/// alert calls carry the Bearer token Kong requires (B-11).
 final alertsRepositoryProvider = Provider<AlertsRepository>((ref) {
-  return AlertsRepository(client: ref.watch(httpClientProvider));
+  return AlertsRepository(client: ref.watch(authedHttpClientProvider));
 });
 
 /// The user's alerts as an [AsyncValue] so the Alerts screen can render

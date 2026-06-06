@@ -32,8 +32,12 @@ type ProductDetail struct {
 // section rather than failing the whole view, so the screen still renders the
 // history. Offers are returned sorted by total cost ascending; the cheapest is
 // the best offer and supplies the headline deal score.
-func buildProductDetail(ctx context.Context, c *upstream.Client, productID string) (ProductDetail, error) {
-	history, err := c.History(ctx, productID)
+//
+// auth is the inbound caller's Authorization header, forwarded to every
+// upstream call so the BFF works behind Kong's JWT gate (B-11). It is "" when
+// the upstream needs no auth (e.g. the B-02 mock server).
+func buildProductDetail(ctx context.Context, c *upstream.Client, productID, auth string) (ProductDetail, error) {
+	history, err := c.History(ctx, productID, auth)
 	if err != nil {
 		return ProductDetail{}, err
 	}
@@ -47,11 +51,11 @@ func buildProductDetail(ctx context.Context, c *upstream.Client, productID strin
 	go func() {
 		defer wg.Done()
 		// Best-effort: ignore the error, leave offers empty on failure.
-		search, _ = c.Search(ctx, history.Title, "")
+		search, _ = c.Search(ctx, history.Title, "", auth)
 	}()
 	go func() {
 		defer wg.Done()
-		truth, _ = c.TruthScore(ctx, productID)
+		truth, _ = c.TruthScore(ctx, productID, auth)
 	}()
 	wg.Wait()
 

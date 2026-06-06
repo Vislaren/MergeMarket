@@ -160,6 +160,43 @@ func TestProductDetailNotFound(t *testing.T) {
 	}
 }
 
+// TC-13-U-011 (BFF): the aggregate forwards the caller's Authorization header
+// to every upstream call so the BFF works behind Kong's JWT gate (B-11).
+func TestProductDetailForwardsAuthHeaderUpstream(t *testing.T) {
+	seen := make(chan string, 3)
+	mux := http.NewServeMux()
+	record := func(w http.ResponseWriter, r *http.Request, body string) {
+		seen <- r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(body))
+	}
+	mux.HandleFunc("GET /api/v1/products/{id}/history", func(w http.ResponseWriter, r *http.Request) {
+		record(w, r, `{"product_id":"prod-001","title":"iPhone 15","history":[],"average_6m":0,"lowest_30d":0}`)
+	})
+	mux.HandleFunc("GET /api/v1/products/{id}/truth-score", func(w http.ResponseWriter, r *http.Request) {
+		record(w, r, `{"product_id":"prod-001","score":80,"sentiment":"positive","fake_review_risk":"low","summary":""}`)
+	})
+	mux.HandleFunc("GET /api/v1/search", func(w http.ResponseWriter, r *http.Request) {
+		record(w, r, `{"query":"iPhone 15","results":[],"cached":false,"latency_ms":1}`)
+	})
+	up := httptest.NewServer(mux)
+	defer up.Close()
+	h := newTestServer(t, up.URL)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/products/prod-001/detail", nil)
+	req.Header.Set("Authorization", "Bearer caller-token")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", rec.Code, rec.Body.String())
+	}
+	for i := 0; i < 3; i++ {
+		if got := <-seen; got != "Bearer caller-token" {
+			t.Errorf("upstream call %d Authorization = %q, want %q", i, got, "Bearer caller-token")
+		}
+	}
+}
+
 func TestForwardsUnknownRoutesToUpstream(t *testing.T) {
 	up := fakeUpstream()
 	defer up.Close()

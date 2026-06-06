@@ -21,16 +21,18 @@ Status          : No task in progress
 
 ## Progress So Far
 
-_Nothing in progress. A-12 (Grafana Dashboard on VPS) was completed this
-session — see DONE.md. A-10 stays in TODO (skipped per the user's explicit
-instruction; its `Jenkinsfile` already exists). The next available non-skipped
-task is A-13 (Automated Database Backups), which depends on A-02 (done)._
+_Nothing in progress. Session 8 built the real backend that unblocks the live
+E2E (CONTRACT_AUDIT follow-ups): A-14 (search service) and A-16..A-18
+(consolidated `userdata` service: wishlist + alerts + savings) — see DONE.md.
+A-15 (truth-score) was formalized into TODO but deferred (needs a review-sentiment
+source). A-10 stays skipped (Jenkinsfile exists). A-13 (DB backups) remains next._
 
 ---
 
 ## Decisions Made This Session
 
-_See the A-12 entry in DONE.md._
+_See the A-14 and A-16..A-18 entries in DONE.md (Deal Meter heuristic; CRUD
+consolidation; in-service JWT re-verification; new `purchases` table)._
 
 ---
 

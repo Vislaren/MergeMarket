@@ -11,6 +11,18 @@
 
 ---
 
+### A-15 — Truth-Score Service
+**Description:** Build `GET /api/v1/products/{product_id}/truth-score`
+(review-authenticity / sentiment analysis) backed by the
+`product_score:{product_id}` Redis cache (DATABASE_SCHEMA §3). Requires a
+review-sentiment data source — deferred until a source/model is chosen.
+
+**Depends on:** A-02, A-06 (done); needs a review/sentiment source
+
+**Output:** `services/truth-score/`
+
+---
+
 ### A-10 — Jenkins CI/CD Pipeline
 **Description:** Write the `Jenkinsfile` at the repo root defining a
 multibranch pipeline with four stages: Checkout, Test (go test across

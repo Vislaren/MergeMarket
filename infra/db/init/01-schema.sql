@@ -84,6 +84,19 @@ CREATE TABLE IF NOT EXISTS price_alerts (
 CREATE INDEX IF NOT EXISTS idx_alerts_user_id    ON price_alerts(user_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_product_id ON price_alerts(product_id);
 
+-- Records a completed purchase and how much the user saved versus the most
+-- expensive store at buy time. Backs GET /api/v1/savings (savings service, A-18).
+CREATE TABLE IF NOT EXISTS purchases (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    saved      NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    currency   CHAR(3) NOT NULL DEFAULT 'USD',
+    bought_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchases_user_id ON purchases(user_id);
+
 CREATE TABLE IF NOT EXISTS return_policies (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id    UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,

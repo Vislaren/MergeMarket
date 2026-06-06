@@ -67,22 +67,22 @@ pipeline {
             }
         }
 
-        stage('Test') {
-    steps {
-        sh '''
-            for service in scraper-service normalization; do
-                if [ -f "services/$service/go.mod" ]; then
-                    echo "Testing $service..."
-                    cd services/$service
-                    go test -coverprofile=coverage.out ./...
-                    cd ../..
-                else
-                    echo "Skipping $service — no go.mod found"
-                fi
-            done
-        '''
-    }
-}
+        stage('Service Tests') {
+            steps {
+                sh '''
+                    for service in scraper-service normalization; do
+                        if [ -f "services/$service/go.mod" ]; then
+                            echo "Testing $service..."
+                            cd services/$service
+                            go test -coverprofile=coverage.out ./...
+                            cd ../..
+                        else
+                            echo "Skipping $service — no go.mod found"
+                        fi
+                    done
+                '''
+            }
+        }
     }
 
     post {

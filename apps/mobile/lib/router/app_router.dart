@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/auth_providers.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
@@ -32,8 +34,23 @@ abstract final class Routes {
 /// Results, Product Detail, Login, and Register are top-level routes that
 /// render without the bottom bar.
 final routerProvider = Provider<GoRouter>((ref) {
+  // Re-run redirects whenever auth state changes (login / logout / restore).
+  final authRefresh = ValueNotifier<int>(0);
+  ref.listen(isAuthenticatedProvider, (_, _) => authRefresh.value++);
+  ref.onDispose(authRefresh.dispose);
+
   return GoRouter(
     initialLocation: Routes.home,
+    refreshListenable: authRefresh,
+    redirect: (context, state) {
+      final loggedIn = ref.read(isAuthenticatedProvider);
+      final atAuthScreen = state.matchedLocation == Routes.login ||
+          state.matchedLocation == Routes.register;
+      // Guest browsing is allowed; once signed in, the auth screens are
+      // pointless, so bounce an authenticated user back to Home.
+      if (loggedIn && atAuthScreen) return Routes.home;
+      return null;
+    },
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

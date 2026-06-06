@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/auth_providers.dart';
 import '../router/app_router.dart';
+import '../services/api_exception.dart';
 import '../theme/colours.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
@@ -86,15 +88,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// Navy header band with a greeting and the search bar.
-class _Header extends StatelessWidget {
+/// Navy header band with a greeting, the account affordance, and search bar.
+class _Header extends ConsumerWidget {
   const _Header({required this.controller, required this.onSearch});
 
   final TextEditingController controller;
   final VoidCallback onSearch;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loggedIn = ref.watch(isAuthenticatedProvider);
+
     return Container(
       width: double.infinity,
       color: primaryNavy,
@@ -102,8 +106,14 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('MergeMarket',
-              style: headingLarge.copyWith(color: surfaceWhite)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('MergeMarket',
+                  style: headingLarge.copyWith(color: surfaceWhite)),
+              _AccountButton(loggedIn: loggedIn),
+            ],
+          ),
           const SizedBox(height: xs),
           Text('Find the best deals today',
               style: bodyRegular.copyWith(color: borderGrey)),
@@ -112,5 +122,43 @@ class _Header extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Header action: an account icon that opens Login when signed out, or offers
+/// Logout when signed in (USER_FLOWS Flow 1 entry point).
+class _AccountButton extends ConsumerWidget {
+  const _AccountButton({required this.loggedIn});
+
+  final bool loggedIn;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!loggedIn) {
+      return IconButton(
+        onPressed: () => context.go(Routes.login),
+        icon: const Icon(Icons.person_outline_rounded, color: surfaceWhite),
+        tooltip: 'Log in',
+      );
+    }
+    return IconButton(
+      onPressed: () => _logout(context, ref),
+      icon: const Icon(Icons.logout_rounded, color: surfaceWhite),
+      tooltip: 'Log out',
+    );
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(authControllerProvider.notifier).logout();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Logged out.')));
+    } on ApiException catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 }

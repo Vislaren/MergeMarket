@@ -14,6 +14,12 @@ enum ApiErrorKind {
   /// The request itself was rejected as invalid (HTTP 400).
   badRequest,
 
+  /// Authentication failed or the credentials/token are invalid (HTTP 401).
+  unauthorized,
+
+  /// The request conflicts with existing state, e.g. a duplicate email (HTTP 409).
+  conflict,
+
   /// The requested resource does not exist (HTTP 404).
   notFound,
 

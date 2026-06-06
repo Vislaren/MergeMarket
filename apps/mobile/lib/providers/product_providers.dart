@@ -4,12 +4,14 @@ import '../models/price_history.dart';
 import '../models/product.dart';
 import '../models/truth_score.dart';
 import '../services/product_repository.dart';
+import 'auth_providers.dart';
 import 'search_providers.dart';
 
 /// The Product Detail data-layer repository (history + truth score), wired to
-/// the shared HTTP client from [httpClientProvider].
+/// the authenticated HTTP client so the calls carry the Bearer token Kong
+/// requires (B-11).
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
-  return ProductRepository(client: ref.watch(httpClientProvider));
+  return ProductRepository(client: ref.watch(authedHttpClientProvider));
 });
 
 /// Everything the Product Detail screen needs, aggregated into one view model.

@@ -1,16 +1,97 @@
-# ─────────────────────────────────────────────────────────────────────────
-# Kong Declarative Config — PLACEHOLDER
-# ─────────────────────────────────────────────────────────────────────────
-# Kong runs in DB-less mode (KONG_DATABASE=off) and loads this file on boot.
-# This minimal, valid config exists so `docker compose up` brings Kong up
-# cleanly during early development.
-#
-# Task A-09 replaces this file with the full route table, rate-limiting, and
-# JWT auth plugin mapping every endpoint in project_docs/api/API_CONTRACTS.md.
-# Until then Kong starts healthy but proxies nothing.
-# ─────────────────────────────────────────────────────────────────────────
 _format_version: "3.0"
 _transform: true
 
-services: []
-routes: []
+services:
+  - name: auth-service
+    url: https://auth:8091
+    tls_verify: false
+    routes:
+      - name: auth-register
+        paths: ["/api/v1/auth/register"]
+        methods: ["POST"]
+        strip_path: false
+      - name: auth-login
+        paths: ["/api/v1/auth/login"]
+        methods: ["POST"]
+        strip_path: false
+      - name: auth-refresh
+        paths: ["/api/v1/auth/refresh"]
+        methods: ["POST"]
+        strip_path: false
+
+  - name: search-service
+    url: http://search:8087
+    routes:
+      - name: search
+        paths: ["/api/v1/search"]
+        methods: ["GET"]
+        strip_path: false
+
+  - name: userdata-service
+    url: http://userdata:8090
+    routes:
+      - name: wishlist
+        paths: ["/api/v1/wishlist"]
+        methods: ["GET", "POST"]
+        strip_path: false
+      - name: wishlist-item
+        paths: ["~/api/v1/wishlist/[^/]+$"]
+        methods: ["DELETE"]
+        strip_path: false
+      - name: alerts
+        paths: ["/api/v1/alerts"]
+        methods: ["GET", "POST"]
+        strip_path: false
+      - name: alert-item
+        paths: ["~/api/v1/alerts/[^/]+$"]
+        methods: ["DELETE"]
+        strip_path: false
+      - name: savings
+        paths: ["/api/v1/savings"]
+        methods: ["GET"]
+        strip_path: false
+
+  - name: history-service
+    url: http://history:8085
+    routes:
+      - name: product-history
+        paths: ["~/api/v1/products/[^/]+/history$"]
+        methods: ["GET"]
+        strip_path: false
+
+plugins:
+  - name: rate-limiting
+    config:
+      minute: 120
+      hour: 2000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+
+  - name: jwt
+    service: search-service
+    config:
+      key_claim_name: iss
+      claims_to_verify: ["exp"]
+      run_on_preflight: false
+
+  - name: jwt
+    service: userdata-service
+    config:
+      key_claim_name: iss
+      claims_to_verify: ["exp"]
+      run_on_preflight: false
+
+  - name: jwt
+    service: history-service
+    config:
+      key_claim_name: iss
+      claims_to_verify: ["exp"]
+      run_on_preflight: false
+
+consumers:
+  - username: mergemarket-auth
+    jwt_secrets:
+      - key: mergemarket-auth
+        algorithm: HS256
+        secret: __JWT_SECRET__
